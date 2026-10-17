@@ -78,6 +78,8 @@ jobs:
       - name: Upload source maps to New Relic
         env:
           NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          RELEASE_NAME: weather-app
+          RELEASE_ID: ${{ github.sha }}
           BUILD_COMMIT: ${{ github.sha }}
         run: node scripts/upload-newrelic-sourcemaps.cjs
 

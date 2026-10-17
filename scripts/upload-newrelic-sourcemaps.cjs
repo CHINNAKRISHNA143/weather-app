@@ -9,6 +9,8 @@ const appUrl = process.env.APP_URL?.replace(/\/+$/, "");
 const repoUrl = process.env.GITHUB_REPOSITORY
   ? `https://github.com/${process.env.GITHUB_REPOSITORY}`
   : undefined;
+const releaseName = process.env.RELEASE_NAME;
+const releaseId = process.env.RELEASE_ID;
 const buildCommit = process.env.BUILD_COMMIT;
 
 async function findSourceMaps(directory) {
@@ -42,6 +44,8 @@ async function main() {
     ["VITE_NEW_RELIC_APP_ID", applicationId],
     ["NEW_RELIC_API_KEY", apiKey],
     ["APP_URL", appUrl],
+    ["RELEASE_NAME", releaseName],
+    ["RELEASE_ID", releaseId],
     ["BUILD_COMMIT", buildCommit],
   ]
     .filter(([, value]) => !value)
@@ -69,6 +73,8 @@ async function main() {
       javascriptUrl,
       applicationId,
       apiKey,
+      releaseName,
+      releaseId,
       repoUrl,
       buildCommit,
     });
