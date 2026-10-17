@@ -1,0 +1,117 @@
+name: Build and deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    env:
+      VITE_NEW_RELIC_ACCOUNT_ID: ${{ vars.NEW_RELIC_ACCOUNT_ID }}
+      VITE_NEW_RELIC_APP_ID: ${{ vars.NEW_RELIC_APP_ID }}
+      VITE_NEW_RELIC_AGENT_ID: ${{ vars.NEW_RELIC_AGENT_ID }}
+      VITE_NEW_RELIC_LICENSE_KEY: ${{ vars.NEW_RELIC_BROWSER_LICENSE_KEY }}
+      VITE_NEW_RELIC_REGION: ${{ vars.NEW_RELIC_REGION }}
+      APP_URL: ${{ vars.APP_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Verify deployment configuration
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          for name in VITE_NEW_RELIC_ACCOUNT_ID VITE_NEW_RELIC_APP_ID VITE_NEW_RELIC_LICENSE_KEY VITE_NEW_RELIC_REGION APP_URL VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Required GitHub Environment value $name is missing"
+              exit 1
+            fi
+          done
+          case "${VITE_NEW_RELIC_REGION^^}" in
+            US|EU) ;;
+            *) echo "::error::VITE_NEW_RELIC_REGION must be US or EU"; exit 1 ;;
+          esac
+          case "$APP_URL" in
+            https://*) ;;
+            *) echo "::error::APP_URL must be an HTTPS URL"; exit 1 ;;
+          esac
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel
+
+      - name: Pull Vercel project settings
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build production deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Upload source maps to New Relic
+        env:
+          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          RELEASE_NAME: weather-app
+          RELEASE_ID: ${{ github.sha }}
+          BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          if [ -z "$NEW_RELIC_API_KEY" ]; then
+            echo "::error::Required GitHub Environment secret NEW_RELIC_API_KEY is missing"
+            exit 1
+          fi
+
+          map_files=$(find .vercel/output/static -type f -name '*.js.map' -print -quit)
+          if [ -z "$map_files" ]; then
+            echo "::error::No JavaScript source maps found in Vercel build output"
+            exit 1
+          fi
+
+          while IFS= read -r -d '' source_map; do
+            javascript_file="${source_map%.map}"
+            relative_path="${javascript_file#".vercel/output/static/"}"
+            javascript_url="${APP_URL%/}/${relative_path}"
+            npx publish-sourcemap "$source_map" "$javascript_url" \
+              --applicationId="$VITE_NEW_RELIC_APP_ID" \
+              --apiKey="$NEW_RELIC_API_KEY" \
+              --releaseName="$RELEASE_NAME" \
+              --releaseId="$RELEASE_ID" \
+              --repoUrl="https://github.com/${GITHUB_REPOSITORY}" \
+              --buildCommit="$BUILD_COMMIT"
+          done < <(find .vercel/output/static -type f -name '*.js.map' -print0)
+
+      - name: Remove source maps from public deployment output
+        run: find .vercel/output/static -type f -name '*.map' -delete
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
