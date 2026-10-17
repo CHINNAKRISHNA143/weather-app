@@ -6,6 +6,8 @@ import WeatherCard from "./components/WeatherCard";
 import Spinner from "./components/Spinner";
 
 function App() {
+  const isNewRelicTestEnabled =
+    new URLSearchParams(window.location.search).get("newRelicTest") === "1";
   const [location, setLocation] = useState(null);
   const [weather, setWeather] = useState(null);
   const [error, setError] = useState(null);
@@ -141,9 +143,20 @@ function App() {
     }
   };
 
+  const triggerNewRelicTestError = () => {
+    window.setTimeout(() => {
+      throw new Error("New Relic source-map verification test");
+    }, 0);
+  };
+
   return (
     <div className="app-container">
       <h1>Weather App 🌦️</h1>
+      {isNewRelicTestEnabled && (
+        <button onClick={triggerNewRelicTestError}>
+          Trigger New Relic source-map test error
+        </button>
+      )}
       <SearchBar onSearch={handleSearch} />
 
       {loading && <Spinner />}
