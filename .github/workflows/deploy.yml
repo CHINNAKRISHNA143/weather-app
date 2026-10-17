@@ -78,33 +78,8 @@ jobs:
       - name: Upload source maps to New Relic
         env:
           NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
-          RELEASE_NAME: weather-app
-          RELEASE_ID: ${{ github.sha }}
           BUILD_COMMIT: ${{ github.sha }}
-        run: |
-          if [ -z "$NEW_RELIC_API_KEY" ]; then
-            echo "::error::Required GitHub Environment secret NEW_RELIC_API_KEY is missing"
-            exit 1
-          fi
-
-          map_files=$(find .vercel/output/static -type f -name '*.js.map' -print -quit)
-          if [ -z "$map_files" ]; then
-            echo "::error::No JavaScript source maps found in Vercel build output"
-            exit 1
-          fi
-
-          while IFS= read -r -d '' source_map; do
-            javascript_file="${source_map%.map}"
-            relative_path="${javascript_file#".vercel/output/static/"}"
-            javascript_url="${APP_URL%/}/${relative_path}"
-            npx publish-sourcemap "$source_map" "$javascript_url" \
-              --applicationId="$VITE_NEW_RELIC_APP_ID" \
-              --apiKey="$NEW_RELIC_API_KEY" \
-              --releaseName="$RELEASE_NAME" \
-              --releaseId="$RELEASE_ID" \
-              --repoUrl="https://github.com/${GITHUB_REPOSITORY}" \
-              --buildCommit="$BUILD_COMMIT"
-          done < <(find .vercel/output/static -type f -name '*.js.map' -print0)
+        run: node scripts/upload-newrelic-sourcemaps.cjs
 
       - name: Remove source maps from public deployment output
         run: find .vercel/output/static -type f -name '*.map' -delete
