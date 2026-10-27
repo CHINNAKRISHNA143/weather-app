@@ -6,10 +6,13 @@ import WeatherCard from "./components/WeatherCard";
 import Spinner from "./components/Spinner";
 
 function App() {
+  const isNewRelicTestEnabled =
+    new URLSearchParams(window.location.search).get("newRelicTest") === "1";
   const [location, setLocation] = useState(null);
   const [weather, setWeather] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [newRelicTestSent, setNewRelicTestSent] = useState(false);
   const [recentSearches, setRecentSearches] = useState(
     JSON.parse(localStorage.getItem("recentSearches")) || []
   );
@@ -141,9 +144,41 @@ function App() {
     }
   };
 
+  const handleNewRelicTest = () => {
+    const newRelic = window.newrelic;
+    if (!newRelic?.noticeError) {
+      setNewRelicTestSent(false);
+      return;
+    }
+
+    newRelic.noticeError(new Error("Weather app New Relic test error"), {
+      testError: true,
+    });
+    setNewRelicTestSent(true);
+  };
+
   return (
     <div className="app-container">
       <h1>Weather App 🌦️</h1>
+      {isNewRelicTestEnabled && (
+        <div>
+          <button
+            className="new-relic-test-button"
+            disabled={newRelicTestSent}
+            onClick={handleNewRelicTest}
+          >
+            {newRelicTestSent
+              ? "Test error submitted"
+              : "Send one test error to New Relic"}
+          </button>
+          {newRelicTestSent && (
+            <p role="status">Test error submitted to New Relic.</p>
+          )}
+          {!newRelicTestSent && !window.newrelic?.noticeError && (
+            <p role="status">New Relic Browser monitoring is not available.</p>
+          )}
+        </div>
+      )}
       <SearchBar onSearch={handleSearch} />
 
       {loading && <Spinner />}
