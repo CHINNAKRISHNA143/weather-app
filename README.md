@@ -29,9 +29,10 @@ deployment also requires the `VERCEL_TOKEN` secret and `VERCEL_ORG_ID` and
 `VERCEL_PROJECT_ID` variables in the `production` Environment. Disable Vercel's
 automatic Git deployments to avoid deploying the same push twice.
 
-To send one deliberate Browser error after deployment, open the app with
-`?newRelicTest=1` in the URL and click **Send one test error to New Relic**.
-The button disables after submitting and tags the error with `testError: true`.
+To generate one deliberate Browser error after deployment, click **Generate
+test error** in the app. It displays the test error in the UI, reports it to
+New Relic when Browser monitoring is available, and disables after use. The
+reported error is tagged with `testError: true`.
 
 ## Commands
 

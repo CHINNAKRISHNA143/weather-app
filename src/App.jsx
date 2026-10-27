@@ -6,13 +6,13 @@ import WeatherCard from "./components/WeatherCard";
 import Spinner from "./components/Spinner";
 
 function App() {
-  const isNewRelicTestEnabled =
-    new URLSearchParams(window.location.search).get("newRelicTest") === "1";
   const [location, setLocation] = useState(null);
   const [weather, setWeather] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [newRelicTestSent, setNewRelicTestSent] = useState(false);
+  const [newRelicTestMessage, setNewRelicTestMessage] = useState(null);
+  const [newRelicTestStatus, setNewRelicTestStatus] = useState(null);
   const [recentSearches, setRecentSearches] = useState(
     JSON.parse(localStorage.getItem("recentSearches")) || []
   );
@@ -145,39 +145,40 @@ function App() {
   };
 
   const handleNewRelicTest = () => {
+    const testError = new Error("Weather app New Relic test error");
     const newRelic = window.newrelic;
-    if (!newRelic?.noticeError) {
-      setNewRelicTestSent(false);
-      return;
+    if (typeof newRelic?.noticeError === "function") {
+      newRelic.noticeError(testError, { testError: true });
+      setNewRelicTestStatus("Test error sent to New Relic.");
+    } else {
+      setNewRelicTestStatus(
+        "New Relic monitoring is unavailable; the test error was not reported."
+      );
     }
 
-    newRelic.noticeError(new Error("Weather app New Relic test error"), {
-      testError: true,
-    });
+    setNewRelicTestMessage(testError.message);
     setNewRelicTestSent(true);
   };
 
   return (
     <div className="app-container">
       <h1>Weather App 🌦️</h1>
-      {isNewRelicTestEnabled && (
-        <div>
-          <button
-            className="new-relic-test-button"
-            disabled={newRelicTestSent}
-            onClick={handleNewRelicTest}
-          >
-            {newRelicTestSent
-              ? "Test error submitted"
-              : "Send one test error to New Relic"}
-          </button>
-          {newRelicTestSent && (
-            <p role="status">Test error submitted to New Relic.</p>
-          )}
-          {!newRelicTestSent && !window.newrelic?.noticeError && (
-            <p role="status">New Relic Browser monitoring is not available.</p>
-          )}
-        </div>
+      <button
+        className="new-relic-test-button"
+        disabled={newRelicTestSent}
+        onClick={handleNewRelicTest}
+      >
+        {newRelicTestSent ? "Test error generated" : "Generate test error"}
+      </button>
+      {newRelicTestMessage && (
+        <p className="new-relic-test-error" role="alert">
+          Test error: {newRelicTestMessage}
+        </p>
+      )}
+      {newRelicTestStatus && (
+        <p className="new-relic-test-status" role="status">
+          {newRelicTestStatus}
+        </p>
       )}
       <SearchBar onSearch={handleSearch} />
 

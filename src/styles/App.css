@@ -53,3 +53,11 @@ p {
 .new-relic-test-button:disabled {
   cursor: default;
 }
+
+.new-relic-test-error {
+  color: #b42318;
+}
+
+.new-relic-test-status {
+  color: #333;
+}

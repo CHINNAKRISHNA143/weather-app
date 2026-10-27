@@ -8,14 +8,11 @@ test("renders the weather app", () => {
   ).toBeInTheDocument();
 });
 
-test("submits one explicit test error to New Relic when enabled", () => {
-  window.history.pushState({}, "", "/?newRelicTest=1");
+test("shows and reports one test error when requested", () => {
   window.newrelic = { noticeError: vi.fn() };
 
   render(<App />);
-  fireEvent.click(
-    screen.getByRole("button", { name: /send one test error to new relic/i })
-  );
+  fireEvent.click(screen.getByRole("button", { name: /generate test error/i }));
 
   expect(window.newrelic.noticeError).toHaveBeenCalledTimes(1);
   expect(window.newrelic.noticeError).toHaveBeenCalledWith(
@@ -24,13 +21,15 @@ test("submits one explicit test error to New Relic when enabled", () => {
     }),
     { testError: true }
   );
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Test error: Weather app New Relic test error"
+  );
   expect(screen.getByRole("status")).toHaveTextContent(
-    "Test error submitted to New Relic."
+    "Test error sent to New Relic."
   );
   expect(
-    screen.getByRole("button", { name: /test error submitted/i })
+    screen.getByRole("button", { name: /test error generated/i })
   ).toBeDisabled();
 
   delete window.newrelic;
-  window.history.pushState({}, "", "/");
 });
